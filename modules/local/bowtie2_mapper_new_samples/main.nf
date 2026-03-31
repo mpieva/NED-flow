@@ -1,7 +1,7 @@
 process BOWTIE2_MAPPER {
     executor 'local'
     //errorStrategy 'retry'
-    maxForks params.maxForks_SGE
+    maxForks params.maxForks
     executor 'sge'
     penv 'smp'
     maxRetries 2
