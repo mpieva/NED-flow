@@ -32,11 +32,11 @@ process MAKE_LOG {
         echo plant \$(cat ${params.path_reference_dbs}/plant/log_files/database_version) >> database_version.txt
     fi
     
-    if [ "${params.vertebrate_mammalian}" = "true" ] || [ "${params.all}" = "true" ]; then
+    if [ "${params.vertebrate_mammalian}" = "true" ] || [ "${params.all}" = "true" || [ "${params.vertebrate}" = "true"  ]; then
         echo vertebrate_mammalian \$(cat ${params.path_reference_dbs}/vertebrate_mammalian/log_files/database_version) >> database_version.txt
     fi
     
-    if [ "${params.vertebrate_other}" = "true" ] || [ "${params.all}" = "true" ]; then
+    if [ "${params.vertebrate_other}" = "true" ] || [ "${params.all}" = "true" || "${params.vertebrate}" = "true" ]; then
         echo vertebrate_other \$(cat ${params.path_reference_dbs}/vertebrate_other/log_files/database_version) >> database_version.txt
     fi  
     
