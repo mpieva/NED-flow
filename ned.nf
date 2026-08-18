@@ -72,7 +72,7 @@ if (params.preprocessing) {
                 def lib = row['lib_id'].replace('.', '_')
                 def lane = row['lane']
                 def run_id = row['run_id']
-                file("/mnt/ngs_data/${run_id}/results/final/s_${lane}_${lib}*.bam")
+                file("/mnt/ngs_data/${run_id}/results/final/s_${lane}_${lib}.bam")
             }
         }
     
