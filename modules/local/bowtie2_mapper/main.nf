@@ -9,50 +9,7 @@ process BOWTIE2_MAPPER {
     executor params.executor
     penv { params.executor == 'sge' ? 'smp' : null }
 
-    memory {
-    def fnaFile = ["plant", "invertebrate", "vertebrate_mammalian", "vertebrate_other", "bacteria", "archaea", "bacteria/bact_sink"]
-        .collect { category -> file("${params.path_reference_dbs}/${category}/${input_dirs}") }
-        .findResult { dir ->
-            dir.exists() ? dir.listFiles()?.find { it.name.endsWith('.fna.gz') } : null
-        }
-
-    if (!fnaFile) {
-        throw new RuntimeException("No .fna.gz file found in any category under ${input_dirs}")
-    }
-
-    def sizeGB = fnaFile.size() / 1e9
-    def maxMemGB = params.memory_max?.replaceAll(/[^\d]/, '')?.toInteger() ?: 128
-    def estimatedMem = Math.max(params.memory as int, Math.min((double)(sizeGB * 6), (double)maxMemGB)).round(0)
-
-    return params.executor == 'slurm'
-        ? (params.memory ?: "${estimatedMem} GB")
-        : null
-    } 
-
-    time {
-    def fnaFile = ["plant", "invertebrate", "vertebrate_mammalian", "vertebrate_other", "bacteria", "archaea", "bacteria/bact_sink"]
-        .collect { category -> file("${params.path_reference_dbs}/${category}/${input_dirs}") }
-        .findResult { dir ->
-            dir.exists() ? dir.listFiles()?.find { it.name.endsWith('.fna.gz') } : null
-        }
-
-    if (!fnaFile) {
-        throw new RuntimeException("No .fna.gz file found in any category under ${input_dirs}")
-    }
-
-    def sizeGB = fnaFile.size() / 1e9
-    def maxTimeH = params.time_max?.replaceAll(/[^\d]/, '')?.toInteger() ?: 24
-    def estimatedTime = Math.max(6, Math.min((double)(sizeGB * 1.5), (double)maxTimeH)).round(0)
-
-    return params.executor == 'slurm'
-        ? (params.time ?: "${estimatedTime}h")
-        : null
-    }
-
-    errorStrategy { 'ignore' }
-
-    container "${ workflow.containerEngine == 'singularity'
-        'https://depot.galaxyproject.org/singularity/mulled-v2-c742dccc9d8fabfcff2af0d8d6799dbc711366cf:2c4c4e771c5f7d6e311c74234a98ccf71669d6fb-0'}"
+    container "${ workflow.containerEngine == 'singularity' ? 'https://depot.galaxyproject.org/singularity/mulled-v2-c742dccc9d8fabfcff2af0d8d6799dbc711366cf:2c4c4e771c5f7d6e311c74234a98ccf71669d6fb-0'}"
     
     publishDir "${params.out_dir}/logs/", mode: 'move', overwrite: true, pattern: '*.log'
     publishDir "${params.out_dir}/bams/", mode: 'move', overwrite: true, pattern: '*.bam'
