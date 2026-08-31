@@ -9,8 +9,10 @@ process BOWTIE2_MAPPER {
     executor params.executor
     penv { params.executor == 'sge' ? 'smp' : null }
 
-    container "${ workflow.containerEngine == 'singularity' ? 'https://depot.galaxyproject.org/singularity/mulled-v2-c742dccc9d8fabfcff2af0d8d6799dbc711366cf:2c4c4e771c5f7d6e311c74234a98ccf71669d6fb-0'}"
-    
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ? 
+        'https://depot.galaxyproject.org/singularity/mulled-v2-c742dccc9d8fabfcff2af0d8d6799dbc711366cf:2c4c4e771c5f7d6e311c74234a98ccf71669d6fb-0' :  
+        'quay.io/biocontainers/mulled-v2-c742dccc9d8fabfcff2af0d8d6799dbc711366cf:2c4c4e771c5f7d6e311c74234a98ccf71669d6fb-0' }"
+ 
     publishDir "${params.out_dir}/logs/", mode: 'move', overwrite: true, pattern: '*.log'
     publishDir "${params.out_dir}/bams/", mode: 'move', overwrite: true, pattern: '*.bam'
 
