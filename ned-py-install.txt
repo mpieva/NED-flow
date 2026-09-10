@@ -8,3 +8,4 @@ biopython==1.83
 numpy==1.26.3
 intervaltree==3.1.0
 scikit-learn==1.5.1
+simplejson==4.1.2
