@@ -205,7 +205,6 @@ def read_bam_file(bams, for_what):
         type='ref_genome'
 
     for bam in bams:
-
         assembly=re.sub('.*/|_[a-zA-Z].*', '', bam)
         save = pysam.set_verbosity(0)
         samfile = pysam.AlignmentFile(bam, "rb", check_sq=False)
@@ -213,7 +212,9 @@ def read_bam_file(bams, for_what):
         if assembly not in total_readcount_dict:
             total_readcount_dict[assembly]={}
         if HEADER_DONE == False and (for_what == 'read_filtering' or for_what == 'r2_stats'):
+            # this can throw an error if the header is corrupted
             header = samfile.header.to_dict()
+
             HEADER_DONE=True
 
             contig2lenght={}
@@ -282,7 +283,7 @@ def read_bam_file(bams, for_what):
                         continue
 
             if for_what == 'read_filtering':
-                bam_dict[read.query_name] = (read.query_sequence, read.reference_name, read.reference_start, read.reference_end)
+                bam_dict[read.query_name] = (len(read.query_sequence), read.reference_name, read.reference_start, read.reference_end)
             
             elif for_what == 'deamination':
                 seq = read.query_sequence
@@ -294,7 +295,7 @@ def read_bam_file(bams, for_what):
                 bam_dict[read.query_name] = (seq, ref)
 
             elif for_what == 'r2_stats':
-                bam_dict[read.query_name] = (read.query_sequence, read.reference_name)
+                bam_dict[read.query_name] = read.reference_name
 
         samfile.close()
     #print(f"{assembly} nreads={len(total_readcount_dict)}")
@@ -493,7 +494,7 @@ def process_bam_files(bam):
         total_bases_sequenced_dict={}
         for read in bam_dict:
 
-            query_sequence, reference_name, reference_start, reference_end = bam_dict[read]
+            query_len, reference_name, reference_start, reference_end = bam_dict[read]
 
             library = re.sub('.*:', '', read)
 
@@ -503,9 +504,9 @@ def process_bam_files(bam):
             
             if library not in total_bases_sequenced_dict:
                 total_bases_sequenced_dict[library] = 0
-            total_bases_sequenced_dict[library]+=len(query_sequence)
+            total_bases_sequenced_dict[library]+=query_len
 
-            mean_readlength.append(len(query_sequence))
+            mean_readlength.append(query_len)
             if reference_name not in read_ranges:
                 read_ranges[reference_name]={}
             # add library after read.reference_name
@@ -568,7 +569,7 @@ def process_bam_files(bam):
 
         error_given_before=False
         for read in bam_dict:
-            query_sequence, reference_name, reference_start, reference_end = bam_dict[read]
+            query_len, reference_name, reference_start, reference_end = bam_dict[read]
 
             library = re.sub('.*:', '', read)
             # looking for overlapping reads
@@ -680,7 +681,7 @@ def process_bam_files(bam):
             pass
 
     for read in bam_dict:
-        query_sequence, reference_name, reference_start, reference_end = bam_dict[read]
+        query_len, reference_name, reference_start, reference_end = bam_dict[read]
 
         library = re.sub('.*:', '', read)
 
@@ -740,38 +741,30 @@ def filter_bam_files():
     
     list_bams_to_preccess = make_list_of_bam_files(args.bam, False)
 
-    
-    with Pool(processes=args.threads) as pool:
-        results = list(tqdm(pool.imap_unordered(process_bam_files, list_bams_to_preccess, chunksize=1), 
-                        total=len(list_bams_to_preccess), 
-                        desc="Bam files processed"))
-        
-    # Aggregate results from all processes
     read2taxon_dict, read_dict, total_95_readcount_dict, contigs_to_ignore, total_readcount_dict, read_count_removed_contigs, read_count_high_coverage, assembly2genome_lenght, assembly2genome_lenght_unflitered, assembly_not_reported, fcs_removed_reads = {}, {}, {}, set(), {}, {}, {}, {}, {}, set(), set()
     assembly_list = []
-    progress=tqdm(total=len(list_bams_to_preccess), desc='Combining results')
+    
+    with Pool(processes=args.threads) as pool:
 
-    for result in results:
-        r2taxon, rdict, trcount, cignore, assembly, ctotal_readcount_dict, cread_count_removed_contigs, cread_count_high_coverage, genome_length, genome_length_unfiltered, cassembly_not_reported, cfcs_removed_reads = result
-        for read in r2taxon:
-            if read not in read2taxon_dict:
-                read2taxon_dict[read] = []
-            read2taxon_dict[read].append(assembly)
+        for result in tqdm(pool.imap_unordered(process_bam_files, list_bams_to_preccess, chunksize=1), total=len(list_bam_to_precess), desc="Bam files processed"):
+            r2taxon, rdict, trcount, cignore, assembly, ctotal_readcount_dict, cread_count_removed_contigs, cread_count_high_coverage, genome_length, genome_length_unfiltered, cassembly_not_reported, cfcs_removed_reads = result
+
+            for read in r2taxon:
+                if read not in read2taxon_dict:
+                    read2taxon_dict[read] = []
+                read2taxon_dict[read].append(assembly)
         
-        assembly_list.append(assembly)
-        read_dict.update(rdict)
-        total_95_readcount_dict.update(trcount)
-        contigs_to_ignore.update(cignore)
-        total_readcount_dict.update(ctotal_readcount_dict)
-        read_count_removed_contigs.update(cread_count_removed_contigs)
-        read_count_high_coverage.update(cread_count_high_coverage)
-        assembly2genome_lenght.update({assembly:genome_length})
-        assembly2genome_lenght_unflitered.update({assembly:genome_length_unfiltered})
-        assembly_not_reported.add(cassembly_not_reported)
-        fcs_removed_reads.update(cfcs_removed_reads)
-        
-        progress.update()
-    progress.close()
+            assembly_list.append(assembly)
+            read_dict.update(rdict)
+            total_95_readcount_dict.update(trcount)
+            contigs_to_ignore.update(cignore)
+            total_readcount_dict.update(ctotal_readcount_dict)
+            read_count_removed_contigs.update(cread_count_removed_contigs)
+            read_count_high_coverage.update(cread_count_high_coverage)
+            assembly2genome_lenght.update({assembly:genome_length})
+            assembly2genome_lenght_unflitered.update({assembly:genome_length_unfiltered})
+            assembly_not_reported.add(cassembly_not_reported)
+            fcs_removed_reads.update(cfcs_removed_reads)
     
     return read2taxon_dict, read_dict, total_95_readcount_dict, contigs_to_ignore, total_readcount_dict, read_count_removed_contigs, read_count_high_coverage, assembly2genome_lenght, assembly2genome_lenght_unflitered, assembly_not_reported, assembly_list, fcs_removed_reads
 
@@ -1014,17 +1007,17 @@ def get_deamination_stat(bam):
         if read in assembly_mapped_dict[assembly][library]['genus']:
             if library not in genus_read_length[assembly]:
                 genus_read_length[assembly][library]=[]
-            genus_read_length[assembly][library].append(len(read))
+            genus_read_length[assembly][library].append(len(seq))
 
         if read in assembly_mapped_dict[assembly][library]['family']:
             if library not in family_read_length[assembly]:
                 family_read_length[assembly][library]=[]
-            family_read_length[assembly][library].append(len(read))
+            family_read_length[assembly][library].append(len(seq))
 
         if read in assembly_mapped_dict[assembly][library]['order']:
             if library not in order_read_length[assembly]:
                 order_read_length[assembly][library]=[]
-            order_read_length[assembly][library].append(len(read))
+            order_read_length[assembly][library].append(len(seq))
 
 
     for assembly in genus_read_length:
@@ -1123,20 +1116,17 @@ def deamination_stat_multi_thread():
 
     list_bams_to_preccess = make_list_of_bam_files(args.bam, False)
 
-    with Pool(processes=args.threads) as pool:
-        results = list(tqdm(pool.imap_unordered(get_deamination_stat, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files processed deamination"))
-
-    # Aggregate results from all processes
     c_deamination_count, c_genus_read_length, c_family_read_length, c_order_read_length = {}, {}, {}, {}
-
-    for result in results:  
-        if result == None:
-            continue
-        deamination_count, genus_read_length, family_read_length, order_read_length = result
-        c_deamination_count.update(deamination_count)
-        c_genus_read_length.update(genus_read_length)
-        c_family_read_length.update(family_read_length)
-        c_order_read_length.update(order_read_length)
+    
+    with Pool(processes=args.threads) as pool:
+        for result in tqdm(pool.imap_unordered(get_deamination_stat, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files processed deamination"):
+            if result == None:
+                continue
+            deamination_count, genus_read_length, family_read_length, order_read_length = result
+            c_deamination_count.update(deamination_count)
+            c_genus_read_length.update(genus_read_length)
+            c_family_read_length.update(family_read_length)
+            c_order_read_length.update(order_read_length)
 
     return c_deamination_count, c_genus_read_length, c_family_read_length, c_order_read_length
 
@@ -1247,7 +1237,7 @@ def get_R2_values(bam):
         #    continue
         #if read.mapping_quality <20:
         #    continue
-        query_sequence, reference_name = bam_dict[read]
+        reference_name = bam_dict[read]
         library = re.sub('.*:', '', read)
         library_list.add(library)
         if assembly not in assembly_mapped_dict:
@@ -1411,18 +1401,15 @@ def get_R2_values(bam):
 def R2_stat_multi_thread():
     list_bams_to_preccess = make_list_of_bam_files(args.bam, False)
 
-    with Pool(processes=args.threads) as pool:
-        results = list(tqdm(pool.imap_unordered(get_R2_values, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files processed r2"))
-
-    # Aggregate results from all processes
     c_R2_values = {}
     
-    for result in results:
-        try :
-            c_R2_values.update(result)
-        except:
-            #print("result: {result}")
-            pass
+    with Pool(processes=args.threads) as pool:
+        for result in tqdm(pool.imap_unordered(get_R2_values, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files processed r2"):
+            try:
+                c_R2_values.update(result)
+            except:
+                #print("result: {result}")
+                pass
             
     return c_R2_values
 
@@ -1507,7 +1494,8 @@ def write_split_bams_multi_thread():
     list_bams_to_preccess = make_list_of_bam_files(args.bam, False)
 
     with Pool(processes=args.threads) as pool:
-        results = list(tqdm(pool.imap(write_taxonomy_split_bam, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files to write"))
+        for _ in tqdm(pool.imap_unordered(write_taxonomy_split_bam, list_bams_to_preccess), total=len(list_bams_to_preccess), desc="Bam files to write"):
+            pass
 
 def find_elbow(x, y, threshold=0):
     """
