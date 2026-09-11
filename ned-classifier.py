@@ -746,7 +746,7 @@ def filter_bam_files():
     
     with Pool(processes=args.threads) as pool:
 
-        for result in tqdm(pool.imap_unordered(process_bam_files, list_bams_to_preccess, chunksize=1), total=len(list_bam_to_precess), desc="Bam files processed"):
+        for result in tqdm(pool.imap_unordered(process_bam_files, list_bams_to_preccess, chunksize=1), total=len(list_bams_to_preccess), desc="Bam files processed"):
             r2taxon, rdict, trcount, cignore, assembly, ctotal_readcount_dict, cread_count_removed_contigs, cread_count_high_coverage, genome_length, genome_length_unfiltered, cassembly_not_reported, cfcs_removed_reads = result
 
             for read in r2taxon:
