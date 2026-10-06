@@ -22,6 +22,8 @@ process DUSTMASKER {
 
 process DUSTFILTER {
     maxForks params.maxForks
+    container "${ workflow.containerEngine == 'singularity'
+        'https://depot.galaxyproject.org/singularity/python:3.8.0--2'}"
 
     input:
        path(input_fastq)
