@@ -69,9 +69,9 @@ if (params.preprocessing) {
             .fromPath(params.bams_tsv)
             .splitCsv(header: true, sep: '\t')
             .map { row -> 
-                def lib = row['lib_id'].replace('.', '_')
-                def lane = row['lane']
-                def run_id = row['run_id']
+                def lib = row['lib_id'].replace('.', '_').replace(' ','')
+                def lane = row['lane'].replace(' ','')
+                def run_id = row['run_id'].replace(' ','')
                 file("/mnt/ngs_data/${run_id}/results/final/s_${lane}_${lib}.bam")
             }
         }
